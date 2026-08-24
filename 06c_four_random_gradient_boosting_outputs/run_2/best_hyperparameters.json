@@ -1,0 +1,7 @@
+{
+  "model__learning_rate": 0.07,
+  "model__max_depth": 3,
+  "model__min_samples_leaf": 2,
+  "model__n_estimators": 150,
+  "model__subsample": 0.8
+}
