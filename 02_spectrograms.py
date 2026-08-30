@@ -15,11 +15,11 @@ KEY_FILE = os.path.join(PROJECT_DIR, "everything_key.xlsx")
 OUTPUT_DIR = os.path.join(PROJECT_DIR, "02_spectrogram_outputs")
 
 AUDIO_COL = "audio_path"
-TARGET_SR = 22050
+TARGET_SR = 22050  # resample everything to the same rate so spectrograms are comparable
 N_MELS = 128
 N_FFT = 2048
 HOP_LENGTH = 512
-OVERVIEW_COUNT = 12
+OVERVIEW_COUNT = 12  # how many spectrograms go into the combined report figure
 
 
 def resolve_path(value):
@@ -30,6 +30,7 @@ def resolve_path(value):
 
 def safe_name(text):
     """Create a valid file name."""
+    # Windows doesn't allow these characters in filenames, swap them for underscores
     invalid = '<>:"/\\|?*'
     return "".join("_" if char in invalid else char for char in text)
 
@@ -48,6 +49,7 @@ def calculate_spectrogram(audio_path):
         n_mels=N_MELS,
         power=2.0,
     )
+    # convert to dB relative to the loudest point in this recording, easier to read visually
     mel_db = librosa.power_to_db(mel_power, ref=np.max)
     return mel_db, sr, float(len(y) / sr)
 
@@ -78,6 +80,7 @@ def show_overview(items):
     columns = 3
     rows = int(np.ceil(len(shown) / columns))
     fig, axes = plt.subplots(rows, columns, figsize=(15, 3.6 * rows))
+    # atleast_1d handles the case where there's only one row/one subplot
     axes = np.atleast_1d(axes).ravel()
 
     image = None
@@ -92,6 +95,7 @@ def show_overview(items):
         )
         axis.set_title(item["title"], fontsize=9)
 
+    # hide any leftover empty panels if fewer than OVERVIEW_COUNT items were passed in
     for axis in axes[len(shown):]:
         axis.axis("off")
 
@@ -124,6 +128,7 @@ def main():
         audio_path = resolve_path(row[AUDIO_COL])
         base_name = os.path.splitext(os.path.basename(audio_path))[0]
         title = f"{index + 1}. {base_name}"
+        # zero-padded prefix keeps files sorted in the same order as the Excel rows
         output_name = f"{index + 1:03d}_{safe_name(base_name)}.png"
         output_path = os.path.join(OUTPUT_DIR, output_name)
 
