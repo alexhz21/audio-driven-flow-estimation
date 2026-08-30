@@ -47,6 +47,8 @@ def load_training_functions():
             "Place 06_train_gradient_boosting.py in the project folder."
         )
 
+    # importing the training script directly (instead of copy-pasting the
+    # feature functions here) means there's zero risk of the two scripts drifting apart
     specification = importlib.util.spec_from_file_location(
         "gradient_boosting_training", TRAIN_SCRIPT
     )
@@ -169,6 +171,8 @@ def main():
 
             wav_path = convert_for_validation(training_module, audio_path)
             features = training_module.extract_audio_features(wav_path)
+            # reindex guarantees the feature columns are in the exact order the
+            # model was trained on, even if extract_audio_features returns a dict
             feature_table = pd.DataFrame([features]).reindex(
                 columns=feature_columns
             )
