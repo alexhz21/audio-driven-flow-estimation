@@ -1,0 +1,15 @@
+CODE 9B - OFFSET-CORRECTED CURVE EVALUATION
+
+The offset-corrected method is post-hoc: the same validation recordings estimated and evaluated the offset.
+
+MEAN RECORDING-LEVEL METRICS
+Gradient Boosting: RMSE=3.2303 mL/s, MAE=2.6673 mL/s, correlation=0.7817, absolute Qmax error=3.6886 mL/s, normalized shape RMSE=0.1744
+Offset-corrected calibration: RMSE=5.3989 mL/s, MAE=4.1840 mL/s, correlation=0.6385, absolute Qmax error=6.2917 mL/s, normalized shape RMSE=0.3330
+Calibration equation: RMSE=14.5069 mL/s, MAE=11.9427 mL/s, correlation=0.7528, absolute Qmax error=23.5320 mL/s, normalized shape RMSE=0.2021
+
+POOLED METRICS
+Gradient Boosting: RMSE=3.6461 mL/s, MAE=2.7483 mL/s, correlation=0.8790
+Offset-corrected calibration: RMSE=5.6903 mL/s, MAE=4.0577 mL/s, correlation=0.6374
+Calibration equation: RMSE=15.8657 mL/s, MAE=12.1323 mL/s, correlation=0.6897
+
+Failed curve files: 0

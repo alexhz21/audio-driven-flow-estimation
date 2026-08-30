@@ -1,0 +1,5 @@
+Valid recordings: 53
+Average calibration Qmax offset (calibration - reference): 23.531954 mL/s
+Raw calibration Qmax MAE: 23.531954 mL/s
+Offset-corrected calibration Qmax MAE: 6.291714 mL/s
+Warning: the offset was estimated and evaluated on the same validation recordings.
