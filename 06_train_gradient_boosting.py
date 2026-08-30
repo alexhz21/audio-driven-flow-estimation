@@ -195,6 +195,8 @@ def extract_audio_features(audio_path, sr=TARGET_SR):
     half_window_frames = int(round(EMAX_HALF_WINDOW_SEC * frames_per_second))
 
     if mel_spectrogram.shape[1] > 0:
+        # same peak-centered window used for the calibration equation feature,
+        # kept consistent so this feature means the same thing everywhere it's used
         peak_frame_mel = min(peak_frame, mel_spectrogram.shape[1] - 1)
         start_frame = max(0, peak_frame_mel - half_window_frames)
         end_frame = min(
@@ -388,6 +390,8 @@ def evaluate_loocv(features, target, pipeline, parameter_grid):
         y_train = target.iloc[train_indices]
         y_test = target.iloc[test_indices]
 
+        # nested CV: hyperparameters are tuned only on this fold's training data,
+        # so the held-out point never leaks into the tuning process
         inner_cv = KFold(n_splits=min(5, len(x_train)), shuffle=True, random_state=42)
         search = GridSearchCV(
             clone(pipeline),
@@ -522,6 +526,8 @@ def main():
     predictions["error"] = predictions["y_pred_qmax"] - predictions["y_true_qmax"]
     predictions.to_csv(PREDICTIONS_OUT, index=False)
 
+    # refit on the full dataset for the final model that actually gets saved and used;
+    # the LOOCV loop above was only for honestly estimating its accuracy
     final_model, best_parameters = fit_final_model(
         features, target, pipeline, parameter_grid
     )
