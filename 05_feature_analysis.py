@@ -133,6 +133,7 @@ def convert_to_wav(audio_path):
     name = os.path.splitext(os.path.basename(audio_path))[0] + ".wav"
     output_path = os.path.join(WAV_DIR, name)
 
+    # skip the conversion if it's already been done in a previous run
     if not os.path.exists(output_path):
         (
             AudioSegment.from_file(audio_path)
@@ -175,12 +176,13 @@ def compute_qmax(csv_path):
     if len(weight) < 10:
         raise ValueError("Too few scale samples")
 
+    # fall back to an assumed fixed rate if the timestamps aren't strictly increasing
     if np.any(np.diff(time) <= 0):
         time = np.arange(len(weight), dtype=float) / DEFAULT_SCALE_HZ
 
     fs = 1.0 / float(np.median(np.diff(time)))
     window = max(5, int(round(0.75 * fs)))
-    window += 1 - window % 2
+    window += 1 - window % 2  # savgol_filter requires an odd window length
 
     if window >= len(weight):
         window = len(weight) - 1 if len(weight) % 2 == 0 else len(weight)
@@ -199,6 +201,8 @@ def extract_features(audio_path):
     if len(y) == 0:
         raise ValueError("Empty audio file")
 
+    # trim leading/trailing silence so the features reflect the actual flow event,
+    # but fall back to the untrimmed signal if trimming leaves almost nothing
     trimmed, _ = librosa.effects.trim(y, top_db=25)
     signal = trimmed if len(trimmed) >= int(0.5 * sr) else y
 
@@ -290,6 +294,7 @@ def friendly_labels(feature):
     if feature in FEATURE_LABELS:
         return FEATURE_LABELS[feature]
 
+    # for any feature not explicitly listed above, just derive something readable
     readable = feature.replace("_", " ").title()
     return f"Qmax vs. {readable}", readable
 
