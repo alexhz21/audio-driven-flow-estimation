@@ -1,33 +1,39 @@
 import os
 import warnings
-
 import librosa
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+# librosa/pandas throw a bunch of harmless warnings on some of the older
+# audio files, silencing them so the console output stays readable
 warnings.filterwarnings("ignore")
 
-# Settings
+# ---- Settings ----
+# Everything here is hardcoded to my project folder structure, change
+# these paths if running on a different machine
 PROJECT_DIR = r"C:\school\project\everything everything"
 KEY_FILE = os.path.join(PROJECT_DIR, "everything_key.xlsx")
 OUTPUT_DIR = os.path.join(PROJECT_DIR, "01_dataset_summary_outputs")
-
 AUDIO_COL = "audio_path"
 CSV_COL = "csv_path"
-DEFAULT_SCALE_HZ = 8.0
-URINE_DENSITY = 1.02
-SMOOTH_SEC = 0.75
+DEFAULT_SCALE_HZ = 8.0  # fallback sampling rate for the scale, used only if no time column exists
+URINE_DENSITY = 1.02  # g/mL, used to convert weight change into volume/flow
+SMOOTH_SEC = 0.75  # smoothing window length in seconds, applied to both weight and flow
 
 
 def resolve_path(value):
     """Return an absolute project path."""
+    # the key file sometimes has relative paths and sometimes full ones,
+    # this just makes sure we always end up with something usable
     path = str(value).strip()
     return path if os.path.isabs(path) else os.path.join(PROJECT_DIR, path)
 
 
 def find_column(df, choices):
     """Find the first matching column."""
+    # different exports from the scale software named the columns
+    # differently, so just check a list of possible names in order
     for name in choices:
         if name in df.columns:
             return name
@@ -36,11 +42,14 @@ def find_column(df, choices):
 
 def audio_duration(audio_path):
     """Read audio duration without loading the full signal."""
+    # librosa can get duration from the file header alone, no need to
+    # decode the whole waveform just for this
     return float(librosa.get_duration(path=audio_path))
 
 
 def scale_results(csv_path):
     """Calculate duration, Qmax, and volume."""
+    # some of the scale logs got saved as Excel instead of CSV, handle both
     if csv_path.lower().endswith((".xlsx", ".xls")):
         df = pd.read_excel(csv_path)
     else:
@@ -50,13 +59,16 @@ def scale_results(csv_path):
     time_col = find_column(
         df, ["DateTime", "datetime", "time", "Time", "seconds", "Seconds", "t"]
     )
-
     if weight_col is None:
         raise ValueError("Weight column not found")
 
+    # fill in any gaps in the weight readings before doing anything else
+    # with them, otherwise a single missing sample throws off the gradient
     weight = pd.to_numeric(df[weight_col], errors="coerce")
     weight = weight.interpolate().bfill().ffill().to_numpy(dtype=float)
 
+    # figure out the time axis - either a real timestamp column, a plain
+    # numeric time column, or if neither exists just assume a fixed rate
     if time_col and "date" in time_col.lower():
         dates = pd.to_datetime(df[time_col], dayfirst=True, errors="coerce")
         time = (dates - dates.iloc[0]).dt.total_seconds().to_numpy(dtype=float)
@@ -66,6 +78,8 @@ def scale_results(csv_path):
     else:
         time = np.arange(len(weight), dtype=float) / DEFAULT_SCALE_HZ
 
+    # use the median sample spacing instead of the mean since a couple of
+    # dropped/duplicate samples can otherwise skew dt quite a bit
     valid_dt = np.diff(time)
     valid_dt = valid_dt[np.isfinite(valid_dt) & (valid_dt > 0)]
     dt = float(np.median(valid_dt)) if len(valid_dt) else 1.0 / DEFAULT_SCALE_HZ
@@ -78,6 +92,8 @@ def scale_results(csv_path):
         .to_numpy()
     )
 
+    # flow = rate of weight change, converted from grams to mL using
+    # urine density, then smoothed again since the raw gradient is noisy
     flow = np.gradient(smooth_weight, dt) / URINE_DENSITY
     flow = (
         pd.Series(flow)
@@ -85,12 +101,13 @@ def scale_results(csv_path):
         .mean()
         .to_numpy()
     )
+    # flow can't physically be negative, small negative dips are just noise
     flow = np.maximum(flow, 0.0)
 
     return {
         "scale_duration_s": float(time[-1] - time[0]),
         "qmax_ml_s": float(np.max(flow)),
-        "voided_volume_ml": float(np.trapezoid(flow, time)),
+        "voided_volume_ml": float(np.trapezoid(flow, time)),  # area under the flow curve = total volume
     }
 
 
@@ -99,7 +116,6 @@ def save_histogram(data, column, title, xlabel, filename):
     values = data[column].dropna()
     if values.empty:
         return
-
     plt.figure(figsize=(7, 5))
     plt.hist(values, bins="auto", edgecolor="black", alpha=0.8)
     plt.axvline(values.mean(), color="red", linestyle="--", label="Mean")
@@ -118,8 +134,8 @@ def main():
 
     print("\n=== DATASET SUMMARY ===")
     print(f"Reading: {KEY_FILE}")
-
     key = pd.read_excel(KEY_FILE)
+
     required = [AUDIO_COL, CSV_COL]
     missing = [column for column in required if column not in key.columns]
     if missing:
@@ -127,22 +143,23 @@ def main():
 
     rows = []
     total = len(key)
-
     for index, row in key.iterrows():
         audio_path = resolve_path(row[AUDIO_COL])
         csv_path = resolve_path(row[CSV_COL])
-
         result = {
-            "excel_row": index + 2,
+            "excel_row": index + 2,  # +2 to match the actual Excel row (header + 1-indexing)
             "audio_path": audio_path,
             "csv_path": csv_path,
             "status": "ok",
         }
 
+        # not every key file has a split column, so just grab it if it's there
         split_col = find_column(key, ["split", "set", "dataset", "group"])
         if split_col:
             result["split"] = row[split_col]
 
+        # wrap each recording in its own try/except so one bad file
+        # doesn't kill the whole run, just gets logged as an error row
         try:
             if not os.path.exists(audio_path):
                 raise FileNotFoundError(f"Audio not found: {audio_path}")
@@ -192,6 +209,7 @@ def main():
     print("\n=== NUMERIC SUMMARY ===")
     print(summary.round(3).to_string())
 
+    # dump the three main distributions so I can eyeball outliers later
     save_histogram(
         valid,
         "qmax_ml_s",
