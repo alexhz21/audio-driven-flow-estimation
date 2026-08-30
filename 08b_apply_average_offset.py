@@ -109,6 +109,7 @@ def read_curve(curve_path):
     """Read one Code 8 curve file and keep valid shared samples."""
     data = pd.read_csv(curve_path)
 
+    # rename the old column name if this curve file predates the rename in Code 8
     if (
         GRADIENT_BOOSTING_COLUMN not in data.columns
         and OLD_GRADIENT_BOOSTING_COLUMN in data.columns
@@ -396,6 +397,7 @@ def main():
     if not records:
         raise ValueError("No valid Code 8 curve files could be processed")
 
+    # this is the single number subtracted from every calibration curve below
     average_offset = float(
         np.mean(
             [record["raw_calibration_qmax_error_ml_s"] for record in records]
