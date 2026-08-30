@@ -214,6 +214,8 @@ def predicted_flows_from_audio(audio_path, predicted_qmax):
     rms = rms[onset_index:]
     calibration_flow = calibration_flow[onset_index:]
 
+    # Gradient Boosting only predicts a single Qmax number, so its curve shape
+    # is approximated by scaling the RMS envelope to peak at that predicted value.
     peak = float(np.max(rms))
     if peak > 0:
         predicted_flow = predicted_qmax * rms / peak
@@ -289,6 +291,8 @@ def save_common_curve(
     if end_time <= 0:
         raise ValueError("Curves have no overlapping duration")
 
+    # use the coarser of the two native time steps so interpolation never
+    # has to invent detail that isn't actually in the source signal
     predicted_time_step = np.median(np.diff(predicted_time))
     actual_time_step = np.median(np.diff(actual_time))
     common_time_step = max(
