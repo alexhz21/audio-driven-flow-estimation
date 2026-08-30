@@ -58,6 +58,8 @@ def rmse(actual, predicted):
 
 def safe_r2(actual, predicted):
     """Return R² when it is defined."""
+    # R² is undefined (or meaningless) when there's only one point or the
+    # reference doesn't vary at all, so just return NaN instead of crashing
     if len(actual) < 2 or np.allclose(actual, actual[0]):
         return np.nan
     return float(r2_score(actual, predicted))
@@ -76,6 +78,8 @@ def safe_correlation(actual, predicted):
 
 def normalized_shape_rmse(actual, predicted):
     """Compare curve shape after scaling each curve to a peak of one."""
+    # normalizing both curves to peak = 1 before computing RMSE isolates
+    # how well the *shape* matches, independent of the magnitude/Qmax error
     actual_peak = float(np.max(actual)) if len(actual) else 0.0
     predicted_peak = float(np.max(predicted)) if len(predicted) else 0.0
 
@@ -243,6 +247,8 @@ def create_method_summary(per_recording):
         "absolute_volume_error_ml",
     ]
 
+    # averaging per-recording metrics (rather than pooling all samples first)
+    # gives every recording equal weight, regardless of how long it is
     rows = []
     for method_name, method_data in per_recording.groupby("method"):
         row = {
