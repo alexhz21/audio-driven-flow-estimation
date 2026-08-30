@@ -160,6 +160,8 @@ def save_csv_safely(dataframe, output_path):
 def fit_model(model_name, x, y):
     """Fit one candidate model."""
 
+    # polyfit is more numerically stable than curve_fit for pure polynomials,
+    # so use it whenever the model is actually a polynomial
     if model_name == "Linear":
         parameters = np.polyfit(x, y, 1)
 
@@ -228,6 +230,8 @@ def calculate_loocv_rmse(model_name, x, y):
             predicted_values.append(predicted_value)
 
         except Exception:
+            # if a fit fails on this fold (e.g. an unstable curve_fit), treat the
+            # whole model as unusable for LOOCV rather than skipping the point
             return np.nan
 
     return float(
@@ -504,6 +508,8 @@ def main():
     ).dropna()
 
     if ENERGY_IS_LOG10:
+        # step_summary.xlsx stores energy as log10, convert back to linear scale
+        # here so the fitted equations use raw energy, not log energy
         data[X_COLUMN] = 10.0 ** data[X_COLUMN]
 
     data = data[
@@ -635,6 +641,8 @@ def main():
 
     summary = pd.DataFrame(summary_rows)
 
+    # LOOCV RMSE is the fairer ranking criterion since it estimates
+    # out-of-sample error rather than just fit quality on the same points
     summary = summary.sort_values(
         "loocv_rmse",
         na_position="last",
