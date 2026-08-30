@@ -111,6 +111,8 @@ def build_complete_dataset(training_module):
         dataset = pd.DataFrame(rows)
         dataset.to_csv(DATASET_FILE, index=False)
 
+    # this run only makes sense with exactly TRAIN_SIZE + VALIDATION_SIZE usable
+    # recordings, so fail loudly rather than silently running on a different count
     expected_total = TRAIN_SIZE + VALIDATION_SIZE
     if len(dataset) != expected_total:
         raise ValueError(
@@ -171,6 +173,8 @@ def fit_one_run(
         feature_columns
     )
     pipeline = clone(pipeline)
+    # each run gets its own random_state so the four runs aren't just copies
+    # of each other with a different data split
     pipeline.set_params(model__random_state=split_seed)
 
     inner_cv = KFold(
