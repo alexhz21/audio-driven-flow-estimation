@@ -223,6 +223,8 @@ def extract_model_details(name, fitted_model, feature_names):
     """Extract coefficients or feature importances for interpretation."""
     estimator = fitted_model.named_steps["model"]
 
+    # linear models expose coefficients, tree ensembles expose importances,
+    # branch on whichever attribute this particular model actually has
     if hasattr(estimator, "coef_"):
         values = np.asarray(estimator.coef_, dtype=float)
         value_name = "standardized_coefficient"
